@@ -1,39 +1,75 @@
 import axios from 'axios';
-import cheerio from 'cheerio';
+import { load } from 'cheerio';
 
-// Change BASE to the third website you want to scrape
-const BASE = 'https://www.carparts2u.com.au/?msclkid=d73423dec04e1e5460804b1163f04cb5';
+const BASE = 'https://www.carparts2u.com.au';
 
 export async function site3(query) {
-  const url = `${BASE}/search?q=${encodeURIComponent(query)}`;
+  // WooCommerce search pattern
+  const url = `${BASE}/?s=${encodeURIComponent(query)}&post_type=product`;
+
   const { data: html } = await axios.get(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; SpareStatsBot/1.0)',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
       'Accept-Language': 'en-AU,en;q=0.9'
     },
     timeout: 15000
   });
 
-  const $ = cheerio.load(html);
+  const $ = load(html);
   const items = [];
 
-  // 👇 Update selectors to match the third site’s HTML structure
-  $('.product-card').each((_, el) => {
-    const title = $(el).find('.product-title').text();
-    const price = $(el).find('.price').text();
-    const link  = $(el).find('a.product-link').attr('href');
-    const img   = $(el).find('img.product-image').attr('src');
+  // Common WooCommerce product tiles
+  const cards = $(
+    [
+      'ul.products li.product',
+      '.products .product',
+      '.woocommerce ul.products li.product',
+      '.product-grid .product'
+    ].join(', ')
+  );
 
-    const urlAbs = link?.startsWith('http') ? link : (link ? BASE + link : null);
-    const imgAbs = img?.startsWith('http') ? img : (img ? BASE + img : null);
+  cards.each((_, el) => {
+    const $el = $(el);
 
-    if (title && price && urlAbs) {
+    // Title
+    const title =
+      $el.find('.woocommerce-loop-product__title').text().trim() ||
+      $el.find('h2, h3, .product-title').first().text().trim() ||
+      $el.find('a.woocommerce-LoopProduct-link').attr('title') ||
+      $el.find('a').first().text().trim();
+
+    // Price
+    const priceText =
+      $el.find('.woocommerce-Price-amount').first().text().trim() ||
+      $el.find('.price').first().text().trim();
+
+    // Link
+    let link =
+      $el.find('a.woocommerce-LoopProduct-link').attr('href') ||
+      $el.find('a[href*="/product/"]').attr('href') ||
+      $el.find('a[href]').attr('href');
+
+    // Image
+    let img =
+      $el.find('img').attr('data-src') ||
+      $el.find('img').attr('src');
+
+    // Normalize URLs
+    if (link && !/^https?:\/\//i.test(link)) {
+      try { link = new URL(link, BASE).toString(); } catch {}
+    }
+    if (img && !/^https?:\/\//i.test(img)) {
+      try { img = new URL(img, BASE).toString(); } catch {}
+    }
+
+    if (title && priceText && link) {
       items.push({
         title,
-        price,
-        url: urlAbs,
-        image: imgAbs,
-        source: 'Carparts2u' // change this to store’s actual name
+        price: priceText,
+        url: link,
+        image: img || null,
+        source: 'Carparts2u'
       });
     }
   });
