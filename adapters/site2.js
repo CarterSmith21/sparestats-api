@@ -33,7 +33,7 @@ export async function site2(query) {
         price,
         url: urlAbs,
         image: imgAbs,
-        source: 'ExampleParts2' // change this to the store’s real name
+        source: 'Repco' // change this to the store’s real name
       });
     }
   });
