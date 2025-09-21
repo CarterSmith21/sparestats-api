@@ -24,4 +24,19 @@ export async function site3(query) {
     const link  = $(el).find('a.product-link').attr('href');
     const img   = $(el).find('img.product-image').attr('src');
 
-    const urlAbs = link?.startsWith('http') ?
+    const urlAbs = link?.startsWith('http') ? link : (link ? BASE + link : null);
+    const imgAbs = img?.startsWith('http') ? img : (img ? BASE + img : null);
+
+    if (title && price && urlAbs) {
+      items.push({
+        title,
+        price,
+        url: urlAbs,
+        image: imgAbs,
+        source: 'Carparts2u' // change this to store’s actual name
+      });
+    }
+  });
+
+  return items;
+}
