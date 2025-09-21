@@ -1,42 +1,74 @@
 import axios from 'axios';
-import cheerio from 'cheerio';
+import { load } from 'cheerio';
 
-// Change BASE to the second website you want to scrape
-const BASE = 'https://www.repco.com.au/';
+const BASE = 'https://www.repco.com.au';
 
 export async function site2(query) {
   const url = `${BASE}/search?q=${encodeURIComponent(query)}`;
+
   const { data: html } = await axios.get(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; SpareStatsBot/1.0)',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
       'Accept-Language': 'en-AU,en;q=0.9'
     },
     timeout: 15000
   });
 
-  const $ = cheerio.load(html);
+  const $ = load(html);
   const items = [];
 
-  // 👇 Update selectors for the second website’s structure
-  $('.product-card').each((_, el) => {
-    const title = $(el).find('.product-title').text();
-    const price = $(el).find('.price').text();
-    const link  = $(el).find('a.product-link').attr('href');
-    const img   = $(el).find('img.product-image').attr('src');
+  // Repco’s product tiles
+  const cards = $(
+    '.product-tile, .product-tile-container, li.product-item, .product-card'
+  );
 
-    const urlAbs = link?.startsWith('http') ? link : (link ? BASE + link : null);
-    const imgAbs = img?.startsWith('http') ? img : (img ? BASE + img : null);
+  cards.each((_, el) => {
+    const $el = $(el);
 
-    if (title && price && urlAbs) {
+    // Title
+    const title =
+      $el.find('.product-title').text().trim() ||
+      $el.find('.product-name').text().trim() ||
+      $el.find('a[title]').attr('title') ||
+      $el.find('a').first().text().trim();
+
+    // Price
+    const priceText =
+      $el.find('.price').text().trim() ||
+      $el.find('.product-sales-price').text().trim() ||
+      $el.find('.now').text().trim();
+
+    // Link
+    let link =
+      $el.find('a.product-link').attr('href') ||
+      $el.find('a[href*="/p/"]').attr('href') ||
+      $el.find('a[href]').attr('href');
+
+    // Image
+    let img =
+      $el.find('img.product-image').attr('src') ||
+      $el.find('img').attr('data-src') ||
+      $el.find('img').attr('src');
+
+    // Normalize
+    if (link && !/^https?:\/\//i.test(link)) {
+      try { link = new URL(link, BASE).toString(); } catch {}
+    }
+    if (img && !/^https?:\/\//i.test(img)) {
+      try { img = new URL(img, BASE).toString(); } catch {}
+    }
+
+    if (title && priceText && link) {
       items.push({
         title,
-        price,
-        url: urlAbs,
-        image: imgAbs,
-        source: 'Repco' // change this to the store’s real name
+        price: priceText,
+        url: link,
+        image: img || null,
+        source: 'Repco'
       });
     }
   });
 
   return items;
 }
+
