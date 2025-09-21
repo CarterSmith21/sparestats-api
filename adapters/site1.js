@@ -33,7 +33,7 @@ export async function site1(query) {
         price,
         url: urlAbs,
         image: imgAbs,
-        source: 'ExampleParts' // change to store’s name
+        source: 'Supercheap Auto' // change to store’s name
       });
     }
   });
